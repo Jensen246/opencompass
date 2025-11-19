@@ -13,6 +13,13 @@ AMO_Bench_infer_cfg = dict(
     prompt_template=dict(
         type=PromptTemplate,
         template=dict(
+            begin=[
+                dict(
+                    role='SYSTEM',
+                    fallback_role='HUMAN',
+                    prompt='After solving the above problem, please output your final answer in the following format:\n### The final answer is: $\\boxed{<your answer>}$\nExample:\n### The final answer is: $\\boxed{123}$\nThe final answer should be given as precisely as possible (using LaTeX symbols such as \\sqrt, \\frac, \\pi, etc.). If the final answer involves a decimal approximation, it must be accurate to at least four decimal places.',
+                )
+            ],
             round=[
                 dict(role='HUMAN', prompt='{problem}')
             ]
