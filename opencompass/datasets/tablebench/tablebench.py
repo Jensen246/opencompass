@@ -15,7 +15,6 @@ from opencompass.utils import get_data_path
 
 from ..base import BaseDataset
 
-
 @LOAD_DATASET.register_module()
 class TableBenchDataset(BaseDataset):
     """
