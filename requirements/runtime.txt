@@ -28,6 +28,7 @@ protobuf
 python-Levenshtein
 rank_bm25==0.2.2
 rapidfuzz
+rdkit
 requests>=2.31.0
 retrying
 rich
