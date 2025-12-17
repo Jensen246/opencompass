@@ -131,6 +131,9 @@ def do_setup():
             'full':
             parse_requirements('requirements/extra.txt') +
             parse_requirements('requirements/runtime.txt'),
+            'chemcotbench':
+            parse_requirements('requirements/chemcotbench.txt') +
+            parse_requirements('requirements/runtime.txt'),
         },
         license='Apache License 2.0',
         include_package_data=True,
