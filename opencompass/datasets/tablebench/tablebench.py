@@ -1,87 +1,26 @@
 """
 TableBench Dataset evaluator
-Reference: https://github.com/TableBench/TableBench
+Reference: https://huggingface.co/datasets/Multilingual-Multimodal-NLP/TableBench
 """
 
 import json
-import os
-from typing import Dict, List
+import re
+from typing import Any, Dict, List, Optional
 
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 
-from opencompass.openicl import BaseEvaluator
-from opencompass.registry import LOAD_DATASET
-from opencompass.utils import get_data_path
+from opencompass.openicl.icl_evaluator import BaseEvaluator
+from opencompass.registry import ICL_EVALUATORS, LOAD_DATASET
 
 from ..base import BaseDataset
 
-@LOAD_DATASET.register_module()
-class TableBenchDataset(BaseDataset):
+
+def format_table(table_data: Any) -> str:
     """
-    TableBench Dataset Loader
+    Format table data into a readable string representation.
     
     Args:
-        path: Path to the dataset directory
-        task_type: Type of task (e.g., 'table_qa', 'fact_verification', 'table_to_text')
-        subset: Optional subset name
-    """
-
-    @staticmethod
-    def load(path: str, task_type: str = 'TQA_test', subset: str = None, **kwargs):
-        """
-        Load TableBench dataset from local files.
-        
-        The expected data format is JSONL with fields:
-        - table: The table data (list of dicts or string)
-        - question: The question or prompt
-        - answer: Ground truth answer
-        - metadata: Optional metadata
-        """
-        path = get_data_path(path, local_mode=True)
-        
-        # Construct file path based on task_type and subset
-        if subset:
-            file_path = os.path.join(path, task_type, f'{subset}.jsonl')
-        else:
-            file_path = os.path.join(path, f'{task_type}.jsonl')
-        
-        data = []
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    item = json.loads(line)
-                    
-                    # Preprocess table data
-                    table = item.get('table', '')
-                    if isinstance(table, list):
-                        # Convert list of dicts to formatted string
-                        table = format_table(table)
-                    
-                    processed_item = {
-                        'table': table,
-                        'question': item.get('question', ''),
-                        'answer': item.get('answer', ''),
-                        'task_type': task_type,
-                    }
-                    
-                    # Add optional fields
-                    if 'metadata' in item:
-                        processed_item['metadata'] = item['metadata']
-                    if 'table_id' in item:
-                        processed_item['table_id'] = item['table_id']
-                    
-                    data.append(processed_item)
-        
-        dataset = Dataset.from_list(data)
-        return dataset
-
-
-def format_table(table_data: List[Dict]) -> str:
-    """
-    Format table data (list of dicts) into a readable string representation.
-    
-    Args:
-        table_data: List of dictionaries representing table rows
+        table_data: Table data (dict with 'columns' and 'data' keys, or other formats)
         
     Returns:
         Formatted table string
@@ -89,23 +28,165 @@ def format_table(table_data: List[Dict]) -> str:
     if not table_data:
         return ""
     
-    # Get headers from first row
-    headers = list(table_data[0].keys())
+    # If already a string, return as is
+    if isinstance(table_data, str):
+        return table_data
     
-    # Create header row
-    lines = []
-    header_line = " | ".join(headers)
-    lines.append(header_line)
-    lines.append("-" * len(header_line))
+    # TableBench format: dict with 'columns' and 'data' keys
+    if isinstance(table_data, dict) and 'columns' in table_data and 'data' in table_data:
+        columns = table_data['columns']
+        data = table_data['data']
+        
+        if not columns or not data:
+            return str(table_data)
+        
+        # Create header row
+        lines = []
+        header_line = " | ".join(str(col) for col in columns)
+        lines.append(header_line)
+        lines.append("-" * len(header_line))
+        
+        # Add data rows
+        for row in data:
+            row_line = " | ".join(str(cell) for cell in row)
+            lines.append(row_line)
+        
+        return "\n".join(lines)
     
-    # Add data rows
-    for row in table_data:
-        row_line = " | ".join(str(row.get(h, '')) for h in headers)
-        lines.append(row_line)
+    # If it's a list of dicts (alternative table format)
+    if isinstance(table_data, list) and len(table_data) > 0:
+        if isinstance(table_data[0], dict):
+            # Get headers from first row
+            headers = list(table_data[0].keys())
+            
+            # Create header row
+            lines = []
+            header_line = " | ".join(str(h) for h in headers)
+            lines.append(header_line)
+            lines.append("-" * len(header_line))
+            
+            # Add data rows
+            for row in table_data:
+                row_line = " | ".join(str(row.get(h, '')) for h in headers)
+                lines.append(row_line)
+            
+            return "\n".join(lines)
     
-    return "\n".join(lines)
+    # If it's a single dict without columns/data structure
+    if isinstance(table_data, dict):
+        lines = []
+        header_line = " | ".join(str(k) for k in table_data.keys())
+        lines.append(header_line)
+        lines.append("-" * len(header_line))
+        value_line = " | ".join(str(v) for v in table_data.values())
+        lines.append(value_line)
+        return "\n".join(lines)
+    
+    # Fallback: convert to string
+    return str(table_data)
 
 
+@LOAD_DATASET.register_module()
+class TableBenchDataset(BaseDataset):
+    """
+    TableBench Dataset Loader - loads from HuggingFace
+    
+    Args:
+        path: HuggingFace dataset path (default: 'Multilingual-Multimodal-NLP/TableBench')
+        qtype: Question type filter (e.g., 'DataAnalysis', 'NumericalReasoning', 'FactChecking', 'Visualization')
+        qsubtype: Question subtype filter (e.g., 'StatisticalAnalysis', 'Aggregation', etc.)
+        instruction_type: Instruction type (DP, TCoT, SCoT, PoT) - loads specific data file
+        split: Dataset split (default: 'test')
+    """
+
+    @staticmethod
+    def load(path: str = 'Multilingual-Multimodal-NLP/TableBench',
+             qtype: Optional[str] = None,
+             qsubtype: Optional[str] = None,
+             instruction_type: str = 'DP',
+             **kwargs) -> Dataset:
+        """
+        Load TableBench dataset from HuggingFace.
+        
+        Args:
+            path: HuggingFace dataset path
+            qtype: Filter by question type (DataAnalysis, NumericalReasoning, FactChecking, Visualization)
+            qsubtype: Filter by question subtype (more specific task type)
+            instruction_type: Type of instruction (DP, TCoT, SCoT, PoT) - determines which data file to load
+            split: Dataset split to load (default: 'test')
+            
+        Returns:
+            Processed Dataset with columns: table, question, answer, qtype, qsubtype
+        """
+        # Ensure we use the correct HuggingFace path
+        if not path or '/' not in path or path.startswith('./') or path.startswith('../'):
+            path = 'Multilingual-Multimodal-NLP/TableBench'
+        
+        try:
+            # Load dataset with specific data file to avoid column mismatch
+            # Use instruction_type to specify which file to load
+            data_file = f"TableBench_{instruction_type}.jsonl"
+            
+            # Try loading with specific data file
+            ds = load_dataset(
+                path, 
+                data_files=data_file,
+                split='train'
+            )
+        
+            # Filter by qtype if specified
+            if qtype:
+                ds = ds.filter(lambda x: x.get('qtype') == qtype)
+        
+            # Filter by qsubtype if specified
+            if qsubtype:
+                ds = ds.filter(lambda x: x.get('qsubtype') == qsubtype)
+                            
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load dataset from HuggingFace path '{path}' "
+                f"with instruction_type '{instruction_type}' and split '{split}'. Error: {str(e)}\n"
+                f"Please check:\n"
+                f"1. The dataset exists at: https://huggingface.co/datasets/{path}\n"
+                f"2. You have internet connection or the dataset is cached\n"
+                f"3. The instruction_type is correct (DP, TCoT, SCoT, or PoT)\n"
+                f"4. Try clearing the HuggingFace cache if issues persist"
+            )
+        
+        def process_item(item: Dict[str, Any]) -> Dict[str, Any]:
+            """Process each dataset item."""
+            # Handle table field (should be dict with 'columns' and 'data')
+            table = item.get('table', '')
+            if isinstance(table, dict):
+                # Convert structured table to formatted string
+                table = format_table(table)
+            elif not isinstance(table, str):
+                table = str(table)
+            
+            # Handle question field
+            question = item.get('question', '')
+            
+            # Handle answer field
+            answer = item.get('answer', '')
+            
+            return {
+                'table': table,
+                'question': str(question),
+                'answer': str(answer),
+                'qtype': item.get('qtype', ''),
+                'qsubtype': item.get('qsubtype', ''),
+                # Preserve additional fields
+                'id': item.get('id', ''),
+                'instruction': item.get('instruction', ''),
+                'instruction_type': item.get('instruction_type', instruction_type),
+                'chart_type': item.get('chart_type', ''),
+            }
+        
+        processed_ds = ds.map(process_item)
+        return processed_ds
+
+
+@ICL_EVALUATORS.register_module()
 class TableBenchEvaluator(BaseEvaluator):
     """
     TableBench Evaluator
@@ -121,13 +202,14 @@ class TableBenchEvaluator(BaseEvaluator):
         """
         self.metric = metric
 
-    def score(self, predictions: List, references: List) -> Dict:
+    def score(self, predictions: List, references: List, test_set: Optional[Dataset] = None) -> Dict:
         """
         Calculate evaluation metrics.
         
         Args:
             predictions: List of model predictions
-            references: List of ground truth answers
+            references: List of ground truth answers or dicts with 'answer' key
+            test_set: Optional test dataset
             
         Returns:
             Dictionary containing evaluation results
@@ -137,14 +219,22 @@ class TableBenchEvaluator(BaseEvaluator):
                 'error': 'predictions and references have different length'
             }
         
+        # Extract answer strings from references if they are dicts
+        ref_answers = []
+        for ref in references:
+            if isinstance(ref, dict):
+                ref_answers.append(str(ref.get('answer', '')))
+            else:
+                ref_answers.append(str(ref))
+        
         if self.metric == 'exact_match':
-            return self._exact_match_score(predictions, references)
+            return self._exact_match_score(predictions, ref_answers)
         elif self.metric == 'f1':
-            return self._f1_score(predictions, references)
+            return self._f1_score(predictions, ref_answers)
         elif self.metric == 'accuracy':
-            return self._accuracy_score(predictions, references)
+            return self._accuracy_score(predictions, ref_answers)
         else:
-            return self._exact_match_score(predictions, references)
+            return self._exact_match_score(predictions, ref_answers)
 
     def _exact_match_score(self, predictions: List, references: List) -> Dict:
         """Calculate exact match accuracy."""
@@ -170,6 +260,7 @@ class TableBenchEvaluator(BaseEvaluator):
         return {
             'exact_match': accuracy,
             'accuracy': accuracy,
+            'total_count': count,
             'details': details
         }
 
@@ -211,6 +302,7 @@ class TableBenchEvaluator(BaseEvaluator):
         return {
             'f1_score': avg_f1,
             'accuracy': avg_f1,
+            'total_count': count,
             'details': details
         }
 
@@ -224,13 +316,13 @@ class TableBenchEvaluator(BaseEvaluator):
         text = text.lower()
         
         # Remove punctuation and extra whitespace
-        import re
         text = re.sub(r'[^\w\s]', ' ', text)
         text = ' '.join(text.split())
         
         return text.strip()
 
 
+@ICL_EVALUATORS.register_module()
 class TableBenchNumericEvaluator(BaseEvaluator):
     """
     Evaluator for numeric answers in TableBench.
@@ -244,18 +336,26 @@ class TableBenchNumericEvaluator(BaseEvaluator):
         """
         self.tolerance = tolerance
 
-    def score(self, predictions: List, references: List) -> Dict:
+    def score(self, predictions: List, references: List, test_set: Optional[Dataset] = None) -> Dict:
         """Calculate accuracy for numeric answers."""
         if len(predictions) != len(references):
             return {
                 'error': 'predictions and references have different length'
             }
         
+        # Extract answer strings from references if they are dicts
+        ref_answers = []
+        for ref in references:
+            if isinstance(ref, dict):
+                ref_answers.append(str(ref.get('answer', '')))
+            else:
+                ref_answers.append(str(ref))
+        
         correct = 0
         count = 0
         details = []
         
-        for pred, ref in zip(predictions, references):
+        for pred, ref in zip(predictions, ref_answers):
             detail = {'pred': pred, 'answer': ref, 'correct': False}
             count += 1
             
@@ -284,6 +384,7 @@ class TableBenchNumericEvaluator(BaseEvaluator):
         accuracy = 100 * correct / count if count > 0 else 0
         return {
             'accuracy': accuracy,
+            'total_count': count,
             'details': details
         }
 
@@ -297,7 +398,6 @@ class TableBenchNumericEvaluator(BaseEvaluator):
             return None
         
         # Remove common number formatting
-        import re
         text = text.strip().replace(',', '').replace('%', '')
         
         # Try to extract number
