@@ -119,6 +119,10 @@ Under no circumstances should you choose a key not present in the options or pro
     | Opt# | Maps to elements | Exact term / BRI synonym | Col-Line (or ¶) | Match score* |
     |------|-----------------|--------------------------|-----------------|-------------|
     |  ##  |                 |                          |                 |             |
+    |  ##  |                 |                          |                 |             |
+    |  ##  |                 |                          |                 |             |
+    |  ##  |                 |                          |                 |             |
+    |  ##  |                 |                          |                 |             |
     *Scoring: 0 = missing, 1 = mention, 2 = partial, 3 = full & explicit.*
 
 4.  **Select the Most Relevant Paragraph for Patentability Evaluation**
@@ -128,10 +132,14 @@ Under no circumstances should you choose a key not present in the options or pro
     • Focus on technical relevance, improvements, and system integration when selecting your paragraph.
     Selection Criteria:
     • Consider paragraphs that scored ≥ 1 points in Step 3.
-    • Technical Objectives: Does the paragraph directly support the technical objectives of the Claim?
-    • Prior Art Improvements: Does the paragraph present innovative improvements to existing systems?
-    • System Integration: Does the paragraph explain how elements integrate with each other?
-    • Motivation to Combine: Does the paragraph offer a motivational context for combining features?
+    • Technical Objectives: Does the paragraph directly support the technical objectives of the Claim? Does it provide a solution to the problem presented by the Claim?
+    • Prior Art Improvements: Does the paragraph present innovative improvements to existing systems or technologies?
+    • System Integration: Does the paragraph explain how elements of the system described in the Claim interact or integrate with each other?
+    • Motivation to Combine: Does the paragraph offer a motivational context for combining features, particularly for a §103 rejection?
+
+    Output Requirements:
+    • Clearly indicate your final selection as the Primary Reference (PR).
+    • Provide a concise reason for your selection based strictly on the criteria above.
 
 5. **Consistency & Inherency Check**
    • Verify the selected paragraph does not contradict any claim limitation.
@@ -139,6 +147,12 @@ Under no circumstances should you choose a key not present in the options or pro
 6. **Output (JSON only)**
     Always write the "reason" first and then write the "answer".
    • 'reason' MUST list Step1-Step6 in order, each separated by ';'.
+     ▸ Step1 <statutory/context> ;
+     ▸ Step2 <limits> ;
+     ▸ Step3 <key feature> ;
+     ▸ Step4 <mapping & score> ;
+     ▸ Step5 <rank/tie-break> ;
+     ▸ Step6 <consistency/inherency & §102 or §103 result>.
    • Keep "reason" ≤ 1000 words.
    • "answer" = single paragraph key (int).
 
@@ -262,21 +276,48 @@ class PI4PCDataset(BaseDataset):
     @staticmethod
     def load(path: str = 'LG-AI-Research/PANORAMA',
              prompt_mode: str = 'zero-shot',
+             max_input_len: Optional[int] = None,
+             tokenizer_path: Optional[str] = None,
              **kwargs) -> Dataset:
         """Load and preprocess the PI4PC dataset.
 
         Args:
             path: HuggingFace dataset path
             prompt_mode: 'zero-shot' or 'cot'
+            max_input_len: Maximum input token length. Samples exceeding this
+                will be filtered out. If None, no filtering is applied.
+            tokenizer_path: Path to tokenizer for length calculation.
+                Required if max_input_len is specified.
 
         Returns:
             Dataset with columns: prompt, gold_answers, silver_answers,
                                   negative_answers, option_keys, identifier
         """
         ds = load_dataset(path, data_dir='PI4PC', split='test')
+        original_size = len(ds)
+
+        # Load tokenizer if max_input_len is specified
+        tokenizer = None
+        if max_input_len is not None and tokenizer_path:
+            from transformers import AutoTokenizer
+            tokenizer = AutoTokenizer.from_pretrained(
+                tokenizer_path, trust_remote_code=True)
 
         def process_item(item: Dict[str, Any]) -> Dict[str, Any]:
             prompt = _create_pi4pc_prompt(item, prompt_mode)
+
+            # Filter by token length if tokenizer is available
+            if tokenizer is not None and max_input_len is not None:
+                tokens = tokenizer.encode(prompt, add_special_tokens=False)
+                if len(tokens) > max_input_len:
+                    return {
+                        'prompt': None,
+                        'gold_answers': None,
+                        'silver_answers': None,
+                        'negative_answers': None,
+                        'option_keys': None,
+                        'identifier': None,
+                    }
 
             # Get option keys for validation
             options = _parse_json_field(item.get('options', {}), {})
@@ -292,6 +333,14 @@ class PI4PCDataset(BaseDataset):
             }
 
         processed_ds = ds.map(process_item, remove_columns=ds.column_names)
+
+        # Filter out samples that exceeded max_input_len
+        if tokenizer is not None and max_input_len is not None:
+            processed_ds = processed_ds.filter(lambda x: x['prompt'] is not None)
+            filtered_count = original_size - len(processed_ds)
+            print(f'[PI4PC] Filtered {filtered_count} samples exceeding '
+                  f'{max_input_len} tokens. Remaining: {len(processed_ds)}/{original_size}')
+
         return processed_ds
 
 
