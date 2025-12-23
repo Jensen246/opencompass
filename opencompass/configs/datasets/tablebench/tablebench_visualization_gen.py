@@ -8,7 +8,7 @@ with read_base():
         TABLEBENCH_HF_PATH,
         tablebench_base_reader_cfg,
         TableBenchDataset,
-        TableBenchEvaluator,
+        TableBenchVisualizationEvaluator,
         PromptTemplate,
         ZeroRetriever,
         GenInferencer,
@@ -24,12 +24,15 @@ tablebench_viz_infer_cfg = dict(
             round=[
                 dict(
                     role='HUMAN',
-                    prompt="""Based on the table below, answer the visualization question.
+                    # 使用数据集自带的 instruction
+                    prompt="""{instruction}
 
 Table:
 {table}
 
 Question: {question}
+
+Please provide Python code using matplotlib to create the visualization. Wrap your code in ... ``` blocks.
 
 Answer:"""
                 ),
@@ -37,25 +40,25 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512),
+    inferencer=dict(type=GenInferencer, max_out_len=1024),
 )
 
 tablebench_viz_eval_cfg = dict(
-    evaluator=dict(type=TableBenchEvaluator, metric='f1')
+    evaluator=dict(type=TableBenchVisualizationEvaluator, timeout=15)
 )
 
 # ===== Dataset Definitions =====
 tablebench_visualization_datasets = []
 
-# Visualization 类型的任务
 tablebench_visualization_datasets.append(
     dict(
         abbr='tablebench_visualization',
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='Visualization',
+        instruction_type='DP',  # 明确指定
         reader_cfg=tablebench_viz_reader_cfg,
         infer_cfg=tablebench_viz_infer_cfg,
         eval_cfg=tablebench_viz_eval_cfg,
     )
-)
+)## 主要修改

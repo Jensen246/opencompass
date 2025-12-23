@@ -24,14 +24,15 @@ tablebench_numerical_infer_cfg = dict(
             round=[
                 dict(
                     role='HUMAN',
-                    prompt="""Based on the table below, perform the numerical reasoning task.
+                    # 使用数据集自带的 instruction
+                    prompt="""{instruction}
 
 Table:
 {table}
 
-Task: {question}
+Question: {question}
 
-Please provide your answer as a number.
+Please analyze the table and calculate the answer. End your response with "Final Answer: <numerical value>".
 
 Answer:"""
                 ),
@@ -43,19 +44,19 @@ Answer:"""
 )
 
 tablebench_numerical_eval_cfg = dict(
-    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=1e-2)
+    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=1e-3)
 )
 
 # ===== Dataset Definitions =====
 tablebench_numerical_datasets = []
 
-# NumericalReasoning 类型的任务（不指定 qsubtype，加载所有）
 tablebench_numerical_datasets.append(
     dict(
         abbr='tablebench_numerical',
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='NumericalReasoning',
+        instruction_type='DP',  # 明确指定
         reader_cfg=tablebench_numerical_reader_cfg,
         infer_cfg=tablebench_numerical_infer_cfg,
         eval_cfg=tablebench_numerical_eval_cfg,
