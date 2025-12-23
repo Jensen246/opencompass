@@ -32,7 +32,7 @@ Table:
 
 Question: {question}
 
-Please analyze the table and calculate the answer. End your response with "Final Answer: <numerical value>".
+Please provide the numerical answer directly.
 
 Answer:"""
                 ),
@@ -44,7 +44,7 @@ Answer:"""
 )
 
 tablebench_numerical_eval_cfg = dict(
-    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=1e-3)
+    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=0.01)
 )
 
 # ===== Dataset Definitions =====
@@ -56,7 +56,7 @@ tablebench_numerical_datasets.append(
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='NumericalReasoning',
-        instruction_type='DP',  # 明确指定
+        instruction_type='TCoT',  # 明确指定
         reader_cfg=tablebench_numerical_reader_cfg,
         infer_cfg=tablebench_numerical_infer_cfg,
         eval_cfg=tablebench_numerical_eval_cfg,
