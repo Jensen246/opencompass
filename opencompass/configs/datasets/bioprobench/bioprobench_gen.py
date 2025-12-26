@@ -61,4 +61,3 @@ bioprobench_gen_datasets = [
 		eval_cfg=eval_cfg,
 	)
 ]
-
