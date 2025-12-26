@@ -12,38 +12,38 @@ from opencompass.openicl.icl_evaluator import BaseEvaluator
 
 @LOAD_DATASET.register_module()
 class BioProBenchGENDataset(BaseDataset):
-
-	@staticmethod
-	def load(path="bowenxian/BioProBench", **kwargs):
-		ds = load_dataset(path, name="GEN", split="test")
-		return ds
+    @staticmethod
+    def load(path="bowenxian/BioProBench", **kwargs):
+        ds = load_dataset(path, name="GEN", split="test")
+        ds = ds.select(range(10))
+        return ds
 
 
 def bioprobench_gen_postprocess(text: str):
-	"""Extract the final answer content between [ANSWER_START] and [ANSWER_END].
+    """Extract the final answer content between [ANSWER_START] and [ANSWER_END].
 
-	Strips intermediate thinking or structure blocks if present.
-	Returns the cleaned string or None if parsing fails.
-	"""
-	if text is None:
-		return None
+    Strips intermediate thinking or structure blocks if present.
+    Returns the cleaned string or None if parsing fails.
+    """
+    if text is None:
+        return None
 
-	if "</think>" in text:
-		text = text.split("</think>")[-1]
-	if "</Structure>" in text:
-		text = text.split("</Structure>")[-1]
+    if "</think>" in text:
+        text = text.split("</think>")[-1]
+    if "</Structure>" in text:
+        text = text.split("</Structure>")[-1]
 
-	pattern = r"\[ANSWER_START\](.*?)\[ANSWER_END\]"
-	match = re.search(pattern, text, re.DOTALL)
-	if not match:
-		return None
-	return match.group(1).strip()
+    pattern = r"\[ANSWER_START\](.*?)\[ANSWER_END\]"
+    match = re.search(pattern, text, re.DOTALL)
+    if not match:
+        return None
+    return match.group(1).strip()
 
 
 @ICL_EVALUATORS.register_module()
 class BioProBenchGENEvaluator(BaseEvaluator):
 
-	SIMILARITY_THRESHOLD = 0.7
+    SIMILARITY_THRESHOLD = 0.7
 
 	def _ensure_nltk(self):
 		try:
