@@ -13,7 +13,7 @@ QUERY_TEMPLATE = (
 	"""
 {system_prompt}
 {instruction}
-Format requirements:
+Format requirements for the final output steps (which must be placed *between* the [ANSWER_START] and [ANSWER_END] tags):
 - Each step must be on a separate line.
 
 {input}
@@ -51,7 +51,7 @@ eval_cfg = dict(
 
 
 # Dataset registry entry
-datasets = [
+bioprobench_gen_datasets = [
 	dict(
 		abbr="BioProBench-GEN",
 		type=BioProBenchGENDataset,

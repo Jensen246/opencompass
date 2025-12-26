@@ -16,7 +16,6 @@ class BioProBenchPQADataset(BaseDataset):
     @staticmethod
     def load(path="bowenxian/BioProBench", **kwargs):
         ds = load_dataset(path, name="PQA", split="test")
-        ds = ds.select(range(10))
         return ds
 
 def bioprobench_pqa_postprocess(text: str) -> str:

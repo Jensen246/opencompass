@@ -21,7 +21,6 @@ class BioProBenchORDDataset(BaseDataset):
 		for quick iteration by default.
 		"""
 		ds = load_dataset(path, name="ORD", split="test")
-		ds = ds.select(range(10))
 		return ds
 
 

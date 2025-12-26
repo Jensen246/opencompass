@@ -29,7 +29,6 @@ class BioProBenchERRDataset(BaseDataset):
 				example["step"] = None
 			return example
 		ds = ds.map(_add_step)
-		ds = ds.select(range(10))
 		return ds
 
 

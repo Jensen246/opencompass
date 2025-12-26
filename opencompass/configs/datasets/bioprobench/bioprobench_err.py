@@ -57,7 +57,7 @@ eval_cfg = dict(
 
 
 # Dataset registry entry
-datasets = [
+bioprobench_err_datasets = [
 	dict(
 		abbr="BioProBench-ERR",
 		type=BioProBenchERRDataset,
