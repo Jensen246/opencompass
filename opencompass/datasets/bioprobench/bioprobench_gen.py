@@ -1,6 +1,6 @@
 import re
-import importlib
 import numpy as np
+import nltk
 
 from datasets import load_dataset
 
@@ -8,6 +8,13 @@ from opencompass.registry import LOAD_DATASET, ICL_EVALUATORS
 
 from ..base import BaseDataset
 from opencompass.openicl.icl_evaluator import BaseEvaluator
+
+from sentence_transformers import SentenceTransformer
+from keybert import KeyBERT
+from sklearn.metrics.pairwise import cosine_similarity
+from rouge_score import rouge_scorer
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+from nltk.translate.meteor_score import meteor_score
 
 
 @LOAD_DATASET.register_module()
@@ -47,47 +54,35 @@ class BioProBenchGENEvaluator(BaseEvaluator):
 
     def _ensure_nltk(self):
         try:
-            import nltk
             nltk.data.find('tokenizers/punkt')
         except Exception:
             try:
-                import nltk
                 nltk.download('punkt', quiet=True)
             except Exception:
                 pass
         try:
-            import nltk
             nltk.data.find('corpora/wordnet')
         except Exception:
             try:
-                import nltk
                 nltk.download('wordnet', quiet=True)
             except Exception:
                 pass
 
     def _init_models(self):
-        # Lazy init models to avoid import-time overhead
+        # Lazy init models, assuming dependencies are available
         if not hasattr(self, "_embed_initialized"):
             self._embed_initialized = False
             self._embed_available = False
         if not self._embed_initialized:
-            try:
-                SentenceTransformer = importlib.import_module('sentence_transformers').SentenceTransformer
-                KeyBERT = importlib.import_module('keybert').KeyBERT
-                self._embed_model = SentenceTransformer('all-mpnet-base-v2')
-                self._kw_model = KeyBERT(SentenceTransformer('all-MiniLM-L6-v2'))
-                self._embed_available = True
-            except Exception:
-                self._embed_available = False
+            self._embed_model = SentenceTransformer('all-mpnet-base-v2')
+            self._kw_model = KeyBERT(SentenceTransformer('all-MiniLM-L6-v2'))
+            self._embed_available = True
             self._embed_initialized = True
 
     def _compute_text_metrics(self, reference: str, generated: str):
         bleu = meteor = rouge1 = rouge2 = rougeL = None
 
         try:
-            import nltk
-            from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-            from nltk.translate.meteor_score import meteor_score
             self._ensure_nltk()
             ref_tokens = nltk.word_tokenize(str(reference).lower())
             gen_tokens = nltk.word_tokenize(str(generated).lower())
@@ -101,7 +96,6 @@ class BioProBenchGENEvaluator(BaseEvaluator):
             pass
 
         try:
-            from rouge_score import rouge_scorer
             scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
             scores = scorer.score(str(reference), str(generated))
             rouge1 = scores['rouge1'].fmeasure
@@ -147,7 +141,6 @@ class BioProBenchGENEvaluator(BaseEvaluator):
         for i, ref_vec in enumerate(ref_embeds):
             for j, gen_vec in enumerate(gen_embeds):
                 try:
-                    cosine_similarity = importlib.import_module('sklearn.metrics.pairwise').cosine_similarity
                     sim = cosine_similarity([ref_vec], [gen_vec])[0][0]
                 except Exception:
                     sim = 0.0
@@ -158,7 +151,6 @@ class BioProBenchGENEvaluator(BaseEvaluator):
         for i, gen_vec in enumerate(gen_embeds):
             for j, ref_vec in enumerate(ref_embeds):
                 try:
-                    cosine_similarity = importlib.import_module('sklearn.metrics.pairwise').cosine_similarity
                     sim = cosine_similarity([gen_vec], [ref_vec])[0][0]
                 except Exception:
                     sim = 0.0
