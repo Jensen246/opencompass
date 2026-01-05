@@ -8,13 +8,78 @@ with read_base():
         TABLEBENCH_HF_PATH,
         tablebench_base_reader_cfg,
         TableBenchDataset,
-        TableBenchEvaluator,
-        TableBenchNumericEvaluator,
-        TableBenchRougeEvaluator,
         PromptTemplate,
         ZeroRetriever,
         GenInferencer,
     )
+
+from opencompass.datasets import CustomDataset, generic_llmjudge_postprocess
+from opencompass.evaluator import GenericLLMEvaluator
+
+GRADER_TEMPLATE_NUMERIC = """
+Please as a grading expert, judge whether the numerical answer given by the candidate is correct compared to the standard answer.
+
+Here are some evaluation criteria:
+1. The standard answer is always correct. You only need to judge whether the candidate's answer matches the standard answer.
+2. For numerical answers, consider answers correct if they are within a reasonable tolerance (e.g., ±0.01 or ±1% for percentages).
+3. Ignore formatting differences (e.g., "1000" vs "1,000", "0.5" vs "50%").
+4. If the prediction contains "Final Answer:", extract the answer after this marker. Otherwise, try to extract the numerical value from the response.
+5. If the candidate's answer is invalid (e.g., incomplete, irrelevant, or states it cannot answer), select option C (INVALID).
+
+Please judge whether the following answers are consistent with the standard answer based on the above criteria. Grade the predicted answer as one of:
+A: CORRECT 
+B: INCORRECT
+C: INVALID
+
+Just return the letters "A", "B", or "C", with no text around it.
+
+Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID. Don't apologize or correct yourself if there was a mistake; we are just trying to grade the answer.
+
+<Table Context>:
+{table}
+<Question>:
+{question}
+<Standard Answer>:
+{answer}
+<Candidate's Answer>:
+{prediction}
+
+Judging the correctness of the candidate's answer:
+""".strip()
+
+GRADER_TEMPLATE_DESCRIPTIVE = """
+Please as a grading expert, judge whether the descriptive answer given by the candidate is correct and comprehensive compared to the standard answer.
+
+Here are some evaluation criteria:
+1. The standard answer is always correct. Judge whether the candidate's answer conveys the same key information.
+2. The candidate's answer does not need to match word-for-word, but should contain the main points and insights from the standard answer.
+3. Consider answers correct if they capture the essential meaning, even with different wording or structure.
+4. Ignore minor differences in phrasing, but check for factual accuracy based on the table data.
+5. If the prediction contains "Final Answer:", extract the answer after this marker.
+6. If the candidate's answer is invalid (e.g., incomplete, cut off mid-response, irrelevant, or states it cannot answer), select option C (INVALID).
+
+Please judge whether the following answers are consistent with the standard answer based on the above criteria. Grade the predicted answer as one of:
+A: CORRECT 
+B: INCORRECT
+C: INVALID
+
+Just return the letters "A", "B", or "C", with no text around it.
+
+Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID.
+
+<Table Context>:
+{table}
+<Question>:
+{question}
+<Standard Answer>:
+{answer}
+<Candidate's Answer>:
+{prediction}
+
+Judging the correctness of the candidate's answer:
+""".strip()
+
+
 
 # ===== Statistical Analysis =====
 tablebench_statistical_reader_cfg = tablebench_base_reader_cfg.copy()
@@ -62,15 +127,19 @@ Question: {question}
 Please analyze the table and provide your answer. End your response with "Final Answer: <your detailed answer>".
 
 Answer:"""
-                )
-            ]
-        )
-    )
+                ),
+            ],
+        ),
+    ),
+    retriever = dict(type = ZeroRetriever),
+    inferencer = dict(type = GenInferencer, max_out_len = 512),
 )
 
-tablebench_statistical_eval_cfg = dict(
-    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=0.01)
-)
+#===== Eval config with LLM judge =====
+def create_llm_eval_cfg(grader_template):
+    return dict(
+        evaluator = dict
+    )
 
 # ===== Data Analysis (general) =====
 tablebench_data_analysis_general_reader_cfg = tablebench_base_reader_cfg.copy()
@@ -160,7 +229,7 @@ tablebench_data_analysis_datasets.append(
         path = TABLEBENCH_HF_PATH,
         qtype = 'DataAnalysis',
         qsubtype = 'ImpactAnalysis', 
-        instruction_type = 'TCoT',
+        instruction_type = None,
         reader_cfg = tablebench_base_reader_cfg,
         infer_cfg = tablebench_data_analysis_general_infer_cfg,
         eval_cfg = dict(

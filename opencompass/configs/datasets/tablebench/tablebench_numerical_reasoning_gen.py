@@ -1,6 +1,7 @@
 """TableBench Numerical Reasoning任务配置
 qtype='NumericalReasoning' 的各种子任务
 """
+from tkinter import N
 from mmengine.config import read_base
 
 with read_base():
@@ -56,7 +57,7 @@ tablebench_numerical_datasets.append(
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='NumericalReasoning',
-        instruction_type='TCoT',  # 明确指定
+        instruction_type=None,  # 明确指定
         reader_cfg=tablebench_numerical_reader_cfg,
         infer_cfg=tablebench_numerical_infer_cfg,
         eval_cfg=tablebench_numerical_eval_cfg,

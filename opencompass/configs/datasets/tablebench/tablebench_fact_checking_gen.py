@@ -56,7 +56,7 @@ tablebench_fact_checking_datasets.append(
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='FactChecking',
-        instruction_type='DP',  # 明确指定
+        instruction_type=None,  # 明确指定
         reader_cfg=tablebench_fact_reader_cfg,
         infer_cfg=tablebench_fact_infer_cfg,
         eval_cfg=tablebench_fact_eval_cfg,
