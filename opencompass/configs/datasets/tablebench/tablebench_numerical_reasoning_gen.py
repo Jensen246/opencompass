@@ -1,7 +1,6 @@
 """TableBench Numerical Reasoning任务配置
 qtype='NumericalReasoning' 的各种子任务
 """
-from tkinter import N
 from mmengine.config import read_base
 
 with read_base():
@@ -25,15 +24,14 @@ tablebench_numerical_infer_cfg = dict(
             round=[
                 dict(
                     role='HUMAN',
-                    # 使用数据集自带的 instruction
-                    prompt="""{instruction}
+                    prompt="""Based on the table below, perform the numerical reasoning task.
 
 Table:
 {table}
 
-Question: {question}
+Task: {question}
 
-Please provide the numerical answer directly.
+Please provide your answer as a number.
 
 Answer:"""
                 ),
@@ -45,19 +43,19 @@ Answer:"""
 )
 
 tablebench_numerical_eval_cfg = dict(
-    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=0.01)
+    evaluator=dict(type=TableBenchNumericEvaluator, tolerance=1e-2)
 )
 
 # ===== Dataset Definitions =====
 tablebench_numerical_datasets = []
 
+# NumericalReasoning 类型的任务（不指定 qsubtype，加载所有）
 tablebench_numerical_datasets.append(
     dict(
         abbr='tablebench_numerical',
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='NumericalReasoning',
-        instruction_type=None,  # 明确指定
         reader_cfg=tablebench_numerical_reader_cfg,
         infer_cfg=tablebench_numerical_infer_cfg,
         eval_cfg=tablebench_numerical_eval_cfg,

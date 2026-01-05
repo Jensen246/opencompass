@@ -28,6 +28,7 @@ protobuf
 python-Levenshtein
 rank_bm25==0.2.2
 rapidfuzz
+rdkit
 requests>=2.31.0
 retrying
 rich
@@ -48,3 +49,4 @@ transformers>=4.29.1
 tree-sitter==0.21.3
 tree_sitter_languages>=1.10.2
 typer
+keybert

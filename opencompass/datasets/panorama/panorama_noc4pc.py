@@ -269,20 +269,44 @@ class NOC4PCDataset(BaseDataset):
     @staticmethod
     def load(path: str = 'LG-AI-Research/PANORAMA',
              prompt_mode: str = 'zero-shot',
+             max_input_len: Optional[int] = None,
+             tokenizer_path: Optional[str] = None,
              **kwargs) -> Dataset:
         """Load and preprocess the NOC4PC dataset.
 
         Args:
             path: HuggingFace dataset path
             prompt_mode: 'zero-shot' or 'cot'
+            max_input_len: Maximum input token length. Samples exceeding this
+                will be filtered out. If None, no filtering is applied.
+            tokenizer_path: Path to tokenizer for length calculation.
+                Required if max_input_len is specified.
 
         Returns:
             Dataset with columns: prompt, gold_code, identifier
         """
         ds = load_dataset(path, data_dir='NOC4PC', split='test')
+        original_size = len(ds)
+
+        # Load tokenizer if max_input_len is specified
+        tokenizer = None
+        if max_input_len is not None and tokenizer_path:
+            from transformers import AutoTokenizer
+            tokenizer = AutoTokenizer.from_pretrained(
+                tokenizer_path, trust_remote_code=True)
 
         def process_item(item: Dict[str, Any]) -> Dict[str, Any]:
             prompt = _create_noc4pc_prompt(item, prompt_mode)
+
+            # Filter by token length if tokenizer is available
+            if tokenizer is not None and max_input_len is not None:
+                tokens = tokenizer.encode(prompt, add_special_tokens=False)
+                if len(tokens) > max_input_len:
+                    return {
+                        'prompt': None,
+                        'gold_code': None,
+                        'identifier': None,
+                    }
 
             # Extract gold answer
             answer_raw = item.get('answer', {})
@@ -296,6 +320,14 @@ class NOC4PCDataset(BaseDataset):
             }
 
         processed_ds = ds.map(process_item, remove_columns=ds.column_names)
+
+        # Filter out samples that exceeded max_input_len
+        if tokenizer is not None and max_input_len is not None:
+            processed_ds = processed_ds.filter(lambda x: x['prompt'] is not None)
+            filtered_count = original_size - len(processed_ds)
+            print(f'[NOC4PC] Filtered {filtered_count} samples exceeding '
+                  f'{max_input_len} tokens. Remaining: {len(processed_ds)}/{original_size}')
+
         return processed_ds
 
 

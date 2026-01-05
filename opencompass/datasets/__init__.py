@@ -25,6 +25,7 @@ from .charm import *  # noqa: F401, F403
 from .chatml import *  # noqa: F401, F403
 from .chem_exam import *  # noqa: F401, F403
 from .chembench import *  # noqa: F401, F403
+from .chemcotbench import *  # noqa: F401, F403
 from .chid import *  # noqa: F401, F403
 from .chinese_simpleqa import *  # noqa: F401, F403
 from .cibench import *  # noqa: F401, F403

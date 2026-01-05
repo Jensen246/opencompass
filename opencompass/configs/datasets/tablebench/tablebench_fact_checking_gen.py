@@ -24,15 +24,14 @@ tablebench_fact_infer_cfg = dict(
             round=[
                 dict(
                     role='HUMAN',
-                    # 使用数据集自带的 instruction
-                    prompt="""{instruction}
+                    prompt="""Given the table below, verify the statement.
 
 Table:
 {table}
 
-Question: {question}
+Statement: {question}
 
-Please analyze the table and provide your answer. End your response with "Final Answer: <your answer>" where the answer should be True/False or Yes/No.
+Please verify if this statement is correct based on the table.
 
 Answer:"""
                 ),
@@ -44,19 +43,19 @@ Answer:"""
 )
 
 tablebench_fact_eval_cfg = dict(
-    evaluator=dict(type=TableBenchEvaluator, metric='exact_match')  # 改用 f1，更宽松
+    evaluator=dict(type=TableBenchEvaluator, metric='exact_match')
 )
 
 # ===== Dataset Definitions =====
 tablebench_fact_checking_datasets = []
 
+# FactChecking 类型的任务
 tablebench_fact_checking_datasets.append(
     dict(
         abbr='tablebench_fact_checking',
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='FactChecking',
-        instruction_type=None,  # 明确指定
         reader_cfg=tablebench_fact_reader_cfg,
         infer_cfg=tablebench_fact_infer_cfg,
         eval_cfg=tablebench_fact_eval_cfg,
