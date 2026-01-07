@@ -130,8 +130,8 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 		tau = kendall_tau(gts_steps, preds_steps)
 
 		return {
-			"exact_match": exact,
-			"kendall_tau": tau,
+			"exact_match": exact * 100,
+			"kendall_tau": tau,  # 相关系数，范围-1到1，不乘100
 			"failed": failed,
 			"total": total,
 		}

@@ -121,8 +121,8 @@ class BioProBenchPQAEvaluator(BaseEvaluator):
         brier = float(brier_score_loss(accs, np.array(cfds) / 100)) if accs else None
 
         return {
-            "accuracy": accuracy,
-            "brier_score": brier,
+            "accuracy": accuracy * 100,
+            "brier_score": brier,  # 均方误差，范围0-1，越低越好，不乘100
             "failed": failed,
             "total": total,
         }

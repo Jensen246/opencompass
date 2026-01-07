@@ -113,10 +113,10 @@ class BioProBenchERREvaluator(BaseEvaluator):
 			accuracy = precision = recall = f1 = 0.0
 
 		return {
-			"accuracy": accuracy,
-			"precision": precision,
-			"recall": recall,
-			"f1": f1,
+			"accuracy": accuracy * 100,
+			"precision": precision * 100,
+			"recall": recall * 100,
+			"f1": f1 * 100,
 			"failed": failed,
 			"total": total,
 		}

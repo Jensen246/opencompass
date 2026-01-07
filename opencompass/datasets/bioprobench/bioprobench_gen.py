@@ -214,16 +214,16 @@ class BioProBenchGENEvaluator(BaseEvaluator):
                 failed += 1
 
         result = {
-            "BLEU": float(np.mean(bleu_list)) if bleu_list else None,
-            "METEOR": float(np.mean(meteor_list)) if meteor_list else None,
-            "ROUGE-1": float(np.mean(rouge1_list)) if rouge1_list else None,
-            "ROUGE-2": float(np.mean(rouge2_list)) if rouge2_list else None,
-            "ROUGE-L": float(np.mean(rougel_list)) if rougel_list else None,
-            "KW_Precision": float(np.mean(kw_precision_list)) if kw_precision_list else None,
-            "KW_Recall": float(np.mean(kw_recall_list)) if kw_recall_list else None,
-            "KW_F1": float(np.mean(kw_f1_list)) if kw_f1_list else None,
-            "Step_Recall": float(np.mean(sr_list)) if sr_list else None,
-            "Redundancy_Penalty": float(np.mean(rp_list)) if rp_list else None,
+            "BLEU": float(np.mean(bleu_list)) * 100 if bleu_list else None,
+            "METEOR": float(np.mean(meteor_list)) * 100 if meteor_list else None,
+            "ROUGE-1": float(np.mean(rouge1_list)) * 100 if rouge1_list else None,
+            "ROUGE-2": float(np.mean(rouge2_list)) * 100 if rouge2_list else None,
+            "ROUGE-L": float(np.mean(rougel_list)) * 100 if rougel_list else None,
+            "KW_Precision": float(np.mean(kw_precision_list)) * 100 if kw_precision_list else None,
+            "KW_Recall": float(np.mean(kw_recall_list)) * 100 if kw_recall_list else None,
+            "KW_F1": float(np.mean(kw_f1_list)) * 100 if kw_f1_list else None,
+            "Step_Recall": float(np.mean(sr_list)) * 100 if sr_list else None,
+            "Redundancy_Penalty": float(np.mean(rp_list)) * 100 if rp_list else None,
             "Failed": failed,
             "Total": total,
         }
