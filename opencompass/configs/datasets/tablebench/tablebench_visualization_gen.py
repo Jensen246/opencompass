@@ -37,7 +37,7 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512),
+    inferencer=dict(type=GenInferencer, max_out_len=16384),
 )
 
 tablebench_viz_eval_cfg = dict(

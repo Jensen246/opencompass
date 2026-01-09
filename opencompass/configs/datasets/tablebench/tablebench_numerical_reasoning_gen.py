@@ -76,7 +76,7 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512),
+    inferencer=dict(type=GenInferencer, max_out_len=16384),
 )
 
 tablebench_numerical_eval_cfg = dict(
@@ -101,7 +101,7 @@ tablebench_numerical_eval_cfg = dict(
             type=TableBenchDataset,
             path=TABLEBENCH_HF_PATH,
             qtype='NumericalReasoning',
-            instruction_type='SCoT',
+            instruction_type='TCoT',
             reader_cfg=tablebench_base_reader_cfg,
         ),
         judge_cfg=dict(),

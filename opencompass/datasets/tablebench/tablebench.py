@@ -103,7 +103,7 @@ class TableBenchDataset(BaseDataset):
     def load(path: str = 'Multilingual-Multimodal-NLP/TableBench',
              qtype: Optional[str] = None,
              qsubtype: Optional[str] = None,
-             instruction_type: str = 'DP',
+             instruction_type: str = 'SCoT',
              **kwargs) -> Dataset:
         """
         Load TableBench dataset from HuggingFace.

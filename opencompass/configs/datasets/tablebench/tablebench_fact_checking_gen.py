@@ -65,6 +65,7 @@ Judging:
 """.strip()
 
 # ===== Fact Checking =====
+# ===== Fact Checking =====
 tablebench_fact_infer_cfg = dict(
     prompt_template=dict(
         type=PromptTemplate,
@@ -93,7 +94,7 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=512),
+    inferencer=dict(type=GenInferencer, max_out_len=16384),  # 增加 max_out_len
 )
 
 tablebench_fact_eval_cfg = dict(
@@ -118,7 +119,7 @@ tablebench_fact_eval_cfg = dict(
             type=TableBenchDataset,
             path=TABLEBENCH_HF_PATH,
             qtype='FactChecking',  # ✅ 添加过滤条件
-            instruction_type='SCoT',  # ✅ 添加过滤条件
+            instruction_type='TCoT',  # ✅ 添加过滤条件
             reader_cfg=tablebench_base_reader_cfg,
         ),
         judge_cfg=dict(),

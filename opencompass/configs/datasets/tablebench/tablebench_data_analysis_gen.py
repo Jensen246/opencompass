@@ -21,21 +21,41 @@ from opencompass.evaluator import GenericLLMEvaluator
 GRADER_TEMPLATE_NUMERIC = """
 Please as a grading expert, judge whether the numerical answer given by the candidate is correct compared to the standard answer.
 
-Here are some evaluation criteria:
-1. The standard answer is always correct. You only need to judge whether the candidate's answer matches the standard answer.
-2. For numerical answers, consider answers correct if they are within a reasonable tolerance (e.g., ±0.01 or ±1% for percentages).
-3. Ignore formatting differences (e.g., "1000" vs "1,000", "0.5" vs "50%").
-4. If the prediction contains "Final Answer:", extract the answer after this marker. Otherwise, try to extract the numerical value from the response.
-5. If the candidate's answer is invalid (e.g., incomplete, irrelevant, or states it cannot answer), select option C (INVALID).
+Evaluation criteria:
 
-Please judge whether the following answers are consistent with the standard answer based on the above criteria. Grade the predicted answer as one of:
-A: CORRECT 
-B: INCORRECT
+1. **Answer Extraction - IMPORTANT**:
+   - Extract from "Final Answer:" marker if present
+   - **Only check the FINAL answer after "Final Answer:", NOT the thinking process**
+   - <think>...</think> tags are reasoning process, NOT the final answer
+
+2. **Answer Type - CRITICAL**:
+   - Standard answer is numerical: Candidate MUST provide a number in Final Answer
+   - If candidate says "Yes/No/True/False" when a number is expected: INCORRECT
+   - Answer type must match (number vs. text vs. yes/no)
+
+3. **Numerical Comparison**:
+   - Tolerance: ±0.01 for decimals, ±1% for percentages
+   - Format equivalence: "1000" = "1,000" = "1000.0"
+   - Unit equivalence: "0.5" = "50%" (when appropriate)
+
+4. **Invalid Answers**:
+   - No Final Answer provided
+   - Incomplete or irrelevant response
+   - States cannot answer
+
+Examples:
+- Standard: "5578" | Candidate: "Final Answer: 5578" → A (CORRECT)
+- Standard: "5578" | Candidate: "<think>Found 5578</think> Final Answer: Yes" → B (INCORRECT - wrong type)
+- Standard: "800m" | Candidate: "Final Answer: Yes" → B (INCORRECT - should be 800m, not Yes)
+- Standard: "0.45" | Candidate: "Final Answer: 0.450" → A (CORRECT)
+- Standard: "2009, 5578 pts" | Candidate: "Final Answer: 2009, 5578 pts" → A (CORRECT)
+
+Grade as:
+A: CORRECT
+B: INCORRECT  
 C: INVALID
 
-Just return the letters "A", "B", or "C", with no text around it.
-
-Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID. Don't apologize or correct yourself if there was a mistake; we are just trying to grade the answer.
+Return only "A", "B", or "C".
 
 <Table Context>:
 {table}
@@ -46,7 +66,7 @@ Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID. Don'
 <Candidate's Answer>:
 {prediction}
 
-Judging the correctness of the candidate's answer:
+Judging:
 """.strip()
 
 GRADER_TEMPLATE_FACT_CHECKING = """
@@ -110,7 +130,7 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=1024),
+    inferencer=dict(type=GenInferencer, max_out_len=16384),
 )
 
 
@@ -142,7 +162,7 @@ Answer:"""
         ),
     ),
     retriever = dict(type = ZeroRetriever),
-    inferencer = dict(type = GenInferencer, max_out_len = 1024),
+    inferencer = dict(type = GenInferencer, max_out_len = 16384),
 )
 
 
@@ -173,7 +193,7 @@ def create_llm_eval_cfg(grader_template: str):
                 type = TableBenchDataset,
                 path = TABLEBENCH_HF_PATH,
                 qtype = 'DataAnalysis',
-                instruction_type='SCoT',
+                instruction_type='TCoT',
                 reader_cfg = tablebench_base_reader_cfg,
                 ),
             judge_cfg = dict(),
