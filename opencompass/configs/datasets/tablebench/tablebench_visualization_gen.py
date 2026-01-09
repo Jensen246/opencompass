@@ -54,7 +54,7 @@ tablebench_visualization_datasets.append(
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='Visualization',
-        instruction_type='DP',
+        instruction_type='SCoT',
         reader_cfg=tablebench_viz_reader_cfg,
         infer_cfg=tablebench_viz_infer_cfg,
         eval_cfg=tablebench_viz_eval_cfg,

@@ -49,25 +49,29 @@ Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID. Don'
 Judging the correctness of the candidate's answer:
 """.strip()
 
-GRADER_TEMPLATE_DESCRIPTIVE = """
-Please as a grading expert, judge whether the descriptive answer given by the candidate is correct and comprehensive compared to the standard answer.
+GRADER_TEMPLATE_FACT_CHECKING = """
+Please as a grading expert, judge whether the candidate's answer is correct compared to the standard answer.
 
 Here are some evaluation criteria:
-1. The standard answer is always correct. Judge whether the candidate's answer conveys the same key information.
-2. The candidate's answer does not need to match word-for-word, but should contain the main points and insights from the standard answer.
-3. Consider answers correct if they capture the essential meaning, even with different wording or structure.
-4. Ignore minor differences in phrasing, but check for factual accuracy based on the table data.
-5. If the prediction contains "Final Answer:", extract the answer after this marker.
-6. If the candidate's answer is invalid (e.g., incomplete, cut off mid-response, irrelevant, or states it cannot answer), select option C (INVALID).
+1. The standard answer is always correct. You only need to judge whether the candidate's answer matches the standard answer.
+2. Extract the actual answer from the candidate's response:
+   - If there's a "Final Answer:" marker, use the content after it
+   - If there are <think>...</think> tags, check BOTH the thinking content AND the final output
+   - The answer might be in the reasoning process even if the final output is just "Yes" or "No"
+3. For information extraction tasks:
+   - If the standard answer contains specific data (numbers, names, dates), check if the candidate correctly identified this information
+   - If the candidate says "Yes" but the standard answer is specific data, check if the reasoning contains the correct data
+4. For binary questions (Yes/No, True/False):
+   - Accept equivalent expressions like Yes=True=Correct, No=False=Incorrect
+5. Ignore case differences, minor formatting, and extra whitespace
+6. If the candidate's answer is completely invalid (e.g., states it cannot answer, irrelevant content), select option C (INVALID)
 
 Please judge whether the following answers are consistent with the standard answer based on the above criteria. Grade the predicted answer as one of:
-A: CORRECT 
-B: INCORRECT
-C: INVALID
+A: CORRECT - The candidate correctly identified the information or gave the right answer
+B: INCORRECT - The candidate gave wrong information or missed the key details
+C: INVALID - The answer is unusable or irrelevant
 
 Just return the letters "A", "B", or "C", with no text around it.
-
-Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID.
 
 <Table Context>:
 {table}
@@ -169,7 +173,7 @@ def create_llm_eval_cfg(grader_template: str):
                 type = TableBenchDataset,
                 path = TABLEBENCH_HF_PATH,
                 qtype = 'DataAnalysis',
-                instruction_type='DP',
+                instruction_type='SCoT',
                 reader_cfg = tablebench_base_reader_cfg,
                 ),
             judge_cfg = dict(),
@@ -192,7 +196,7 @@ for subtype in numeric_subtypes:
             path = TABLEBENCH_HF_PATH,
             qtype = 'DataAnalysis',
             qsubtype = subtype,
-            instruction_type = 'DP',
+            instruction_type = 'SCoT',
             reader_cfg = tablebench_base_reader_cfg,
             infer_cfg = tablebench_statistical_infer_cfg,
             eval_cfg = eval_cfg,

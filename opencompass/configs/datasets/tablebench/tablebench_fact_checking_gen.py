@@ -17,25 +17,40 @@ from opencompass.datasets import CustomDataset, generic_llmjudge_postprocess
 from opencompass.evaluator import GenericLLMEvaluator
 
 GRADER_TEMPLATE_FACT_CHECKING = """
-Please as a grading expert, judge whether the candidate's fact-checking answer is correct compared to the standard answer.
+Please as a grading expert, judge whether the candidate's answer is correct compared to the standard answer.
 
-Here are some evaluation criteria:
-1. The standard answer is always correct. You only need to judge whether the candidate's answer matches the standard answer.
-2. Fact-checking answers are typically binary: True/False, Yes/No, Correct/Incorrect, Supported/Not Supported, etc.
-3. Consider semantic equivalence: "True" = "Yes" = "Correct" = "Supported", and "False" = "No" = "Incorrect" = "Not Supported".
-4. If the prediction contains "Final Answer:", extract the answer after this marker.
-5. Ignore case differences and minor formatting.
-6. If the candidate provides reasoning, only judge the final conclusion, not the reasoning process.
-7. If the candidate's answer is invalid (e.g., incomplete, irrelevant, ambiguous, or states it cannot answer), select option C (INVALID).
+Evaluation criteria:
+1. The standard answer is always correct. Judge whether the candidate's answer matches it.
 
-Please judge whether the following answers are consistent with the standard answer based on the above criteria. Grade the predicted answer as one of:
-A: CORRECT 
-B: INCORRECT
-C: INVALID
+2. For specific information questions (asking for numbers, dates, names, etc.):
+   - The candidate must provide the specific information
+   - Answers like "Yes" or "No" are INCORRECT if the standard answer is specific data
+   - The answer must match the standard answer exactly or be semantically equivalent
 
-Just return the letters "A", "B", or "C", with no text around it.
+3. For verification questions (Yes/No, True/False):
+   - Accept equivalent expressions: Yes=True=Correct, No=False=Incorrect
+   - But if the standard answer is specific data, "Yes" is NOT equivalent to that data
 
-Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID.
+4. Extract the answer:
+   - If "Final Answer:" is present, use content after it
+   - Ignore thinking process in <think> tags for final comparison
+   - Ignore case, minor formatting, extra whitespace
+
+5. If the candidate's answer is invalid (incomplete, irrelevant, or cannot answer), select C (INVALID)
+
+Examples:
+- Standard: "800m" | Candidate: "Yes" → INCORRECT (wrong type)
+- Standard: "800m" | Candidate: "800m" → CORRECT
+- Standard: "2009, 5578 pts" | Candidate: "2009, 5578 pts" → CORRECT
+- Standard: "Yes" | Candidate: "Yes" → CORRECT
+- Standard: "No" | Candidate: "True" → INCORRECT
+
+Grade as:
+A: CORRECT - Answer matches the standard answer
+B: INCORRECT - Answer doesn't match or is wrong type
+C: INVALID - No valid answer provided
+
+Return only "A", "B", or "C".
 
 <Table Context>:
 {table}
@@ -46,7 +61,7 @@ Here is your task. Simply reply with either CORRECT, INCORRECT, or INVALID.
 <Candidate's Answer>:
 {prediction}
 
-Judging the correctness of the candidate's answer:
+Judging:
 """.strip()
 
 # ===== Fact Checking =====
@@ -64,7 +79,13 @@ Table:
 
 Question: {question}
 
-Please analyze the table and provide your answer. End your response with "Final Answer: <your answer>" where the answer should be True/False or Yes/No.
+Please analyze the table carefully and provide your answer based on the information in the table. 
+
+Instructions:
+- If the question asks for specific information (numbers, names, dates, etc.), provide that specific information
+- If the question asks for verification (is/are, does/do, etc.), answer with Yes/No or True/False
+- Be precise and concise
+- End your response with "Final Answer: <your answer>"
 
 Answer:"""
                 ),
@@ -72,7 +93,7 @@ Answer:"""
         ),
     ),
     retriever=dict(type=ZeroRetriever),
-    inferencer=dict(type=GenInferencer, max_out_len=256),
+    inferencer=dict(type=GenInferencer, max_out_len=512),
 )
 
 tablebench_fact_eval_cfg = dict(
@@ -97,7 +118,7 @@ tablebench_fact_eval_cfg = dict(
             type=TableBenchDataset,
             path=TABLEBENCH_HF_PATH,
             qtype='FactChecking',  # ✅ 添加过滤条件
-            instruction_type='DP',  # ✅ 添加过滤条件
+            instruction_type='SCoT',  # ✅ 添加过滤条件
             reader_cfg=tablebench_base_reader_cfg,
         ),
         judge_cfg=dict(),
@@ -112,7 +133,7 @@ tablebench_fact_checking_datasets = [
         type=TableBenchDataset,
         path=TABLEBENCH_HF_PATH,
         qtype='FactChecking',
-        instruction_type='DP',
+        instruction_type='SCoT',
         reader_cfg=tablebench_base_reader_cfg,
         infer_cfg=tablebench_fact_infer_cfg,
         eval_cfg=tablebench_fact_eval_cfg,
