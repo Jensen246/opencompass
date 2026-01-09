@@ -144,11 +144,18 @@ def _parse_answer_string(answer_string: Any) -> List[str]:
     """Parse answer string to list of letters A-H.
 
     Args:
-        answer_string: Raw answer string (comma-separated letters) or numpy array
+        answer_string: Raw answer string (comma-separated letters), list, or numpy array
 
     Returns:
         Sorted list of unique letters A-H
     """
+    # Handle list type input (e.g., ['F'] or ['B', 'F'])
+    if isinstance(answer_string, list):
+        result = []
+        for item in answer_string:
+            result.extend(_parse_answer_string(item))
+        return sorted(list(set(result)))
+
     if isinstance(answer_string, np.ndarray):
         answer_string = ','.join(str(x) for x in answer_string)
 
