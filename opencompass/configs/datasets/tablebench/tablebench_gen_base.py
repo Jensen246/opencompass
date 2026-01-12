@@ -2,14 +2,14 @@
 from opencompass.openicl.icl_prompt_template import PromptTemplate
 from opencompass.openicl.icl_retriever import ZeroRetriever
 from opencompass.openicl.icl_inferencer import GenInferencer
-from opencompass.datasets.tablebench import TableBenchDataset, TableBenchEvaluator, TableBenchNumericEvaluator
+from opencompass.datasets.tablebench import TableBenchDataset, TableBenchEvaluator, TableBenchNumericEvaluator, TableBenchVisualizationEvaluator,format_table,TableBenchNumericalWithPercenteErrorEvaluator,TableBenchRougeEvaluator
 
 # HuggingFace dataset path
 TABLEBENCH_HF_PATH = 'Multilingual-Multimodal-NLP/TableBench'
 
 # 通用的reader配置
 tablebench_base_reader_cfg = dict(
-    input_columns=['table', 'question'],
+    input_columns=['table', 'question','instruction'],
     output_column='answer'
 )
 
@@ -20,6 +20,10 @@ __all__ = [
     'TableBenchDataset',
     'TableBenchEvaluator',
     'TableBenchNumericEvaluator',
+    'TableBenchVisualizationEvaluator',
+    'TableBenchNumericalWithPercenteErrorEvaluator',
+    'TableBenchRougeEvaluator',
+    'format_table',
     'PromptTemplate',
     'ZeroRetriever',
     'GenInferencer',
