@@ -15,13 +15,13 @@ class BioProBenchORDDataset(BaseDataset):
 
 	@staticmethod
 	def load(path="bowenxian/BioProBench", **kwargs):
-		"""Load the BioProBench ORD split via HuggingFace datasets.
+		ds = load_dataset(path, name="ORD", split="test", **kwargs)
 
-		Mirrors the PQA loader style and limits to a small subset
-		for quick iteration by default.
-		"""
-		ds = load_dataset(path, name="ORD", split="test")
-		return ds
+		def _compute(row):
+			idx = {s: i for i, s in enumerate(row["wrong_steps"])}
+			return {"correct_ids": [idx.get(s) for s in row["correct_steps"]]}
+
+		return ds.map(_compute)
 
 
 def bioprobench_ord_postprocess(text: str):
@@ -61,16 +61,12 @@ def bioprobench_ord_postprocess(text: str):
 class BioProBenchORDEvaluator(BaseEvaluator):
 
 	def score(self, predictions: list, references: list) -> dict:
-		"""Compute Exact Match and Kendall's Tau for ORD.
-
-		predictions: List of parsed index lists (e.g., [2,0,1]).
-		references:  List of samples containing 'wrong_steps' and 'correct_steps'.
-		"""
 		total = len(references)
-		preds_steps = []
-		gts_steps = []
+		preds_indices = []
+		gts_indices = []
 		failed = 0
 		details = []  # RDAgent compatibility: store per-sample details
+
 
 		for i in range(min(len(predictions), len(references))):
 			sample_detail = {
@@ -78,43 +74,49 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 				'gold': None,
 				'exact_match': False,
 				'correct': False,
+				'error_msg': None,
 			}
 			try:
 				pred = predictions[i]
 				ref = references[i]
 
+				# Normalize prediction into a list of ints
 				if pred is None or not isinstance(pred, (list, tuple)):
 					raise ValueError("Invalid prediction format")
+				try:
+					pred = [int(x) for x in pred]
+				except Exception:
+					raise ValueError("Prediction indices must be integers")
 
-				wrong_steps = None
-				correct_steps = None
-
+				# Normalize reference into a list of ints
 				if isinstance(ref, dict):
-					wrong_steps = ref.get("wrong_steps")
-					correct_steps = ref.get("correct_steps")
+					if "correct_ids" in ref and isinstance(ref["correct_ids"], (list, tuple)):
+						gt = [int(x) for x in ref["correct_ids"]]
+					else:
+						raise ValueError("Reference dict missing 'correct_ids' or steps info")
+				elif isinstance(ref, (list, tuple)):
+					try:
+						gt = [int(x) for x in ref]
+					except Exception:
+						raise ValueError("Reference indices must be integers")
 				else:
-					# Fallback for non-dict references if needed
-					wrong_steps = getattr(ref, "wrong_steps", None)
-					correct_steps = getattr(ref, "correct_steps", None)
+					raise ValueError("Invalid reference format")
 
-				if wrong_steps is None or correct_steps is None:
-					raise ValueError("Missing required steps in references")
+				# Basic validation: same length and same set of items
+				if len(pred) != len(gt) or set(pred) != set(gt):
+					raise ValueError("Predictions and references must be permutations of the same indices")
 
-				if set(pred) != set(range(len(correct_steps))):
-					raise ValueError("Invalid or incomplete index set")
-
-				predicted = [wrong_steps[j] for j in pred]
-				preds_steps.append(predicted)
-				gts_steps.append(correct_steps)
-
-				is_exact = (predicted == correct_steps)
+				preds_indices.append(pred)
+				gts_indices.append(gt)
+				is_exact = (pred == gt)
 				sample_detail['pred'] = pred
-				sample_detail['gold'] = list(range(len(correct_steps)))
+				sample_detail['gold'] = gt
 				sample_detail['exact_match'] = is_exact
 				sample_detail['correct'] = is_exact
 				details.append(sample_detail)
-			except Exception:
+			except Exception as e:
 				failed += 1
+				sample_detail["error_msg"] = str(e)
 				details.append(sample_detail)
 
 		def exact_match(gts, preds):
@@ -130,7 +132,8 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 				gt_rank = {step: i for i, step in enumerate(gt)}
 				pr_rank = {step: i for i, step in enumerate(pr)}
 
-				for a, b in combinations(gt_rank.keys(), 2):
+				shared = gt_rank.keys() & pr_rank.keys()
+				for a, b in combinations(shared, 2):
 					gt_order = gt_rank[a] - gt_rank[b]
 					pr_order = pr_rank[a] - pr_rank[b]
 					if gt_order * pr_order > 0:
@@ -141,12 +144,12 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 				return 0.0
 			return (2 * concordant_pairs - total_pairs) / total_pairs
 
-		exact = exact_match(gts_steps, preds_steps)
-		tau = kendall_tau(gts_steps, preds_steps)
+		exact = exact_match(gts_indices, preds_indices)
+		tau = kendall_tau(gts_indices, preds_indices)
 
 		return {
 			"exact_match": exact * 100,
-			"kendall_tau": tau,  # 相关系数，范围-1到1，不乘100
+			"kendall_tau": tau,
 			"failed": failed,
 			"total": total,
 			"details": details,  # RDAgent compatibility: per-sample details

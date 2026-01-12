@@ -25,7 +25,7 @@ The steps are:
 
 reader_cfg = dict(
 	input_columns=["question", "wrong_steps"],
-	output_column="correct_steps",
+	output_column="correct_ids",
 	test_split="test",
 )
 
