@@ -417,6 +417,7 @@ class PI4PCEvaluator(BaseEvaluator):
                 'is_gold_hit': is_gold_hit,
                 'is_silver_hit': is_silver_hit,
                 'is_valid': is_valid,
+                'correct': is_gold_hit,  # RDAgent compatibility: alias for is_gold_hit
             }
             details.append(detail)
 

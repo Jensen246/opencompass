@@ -86,6 +86,8 @@ instance/
 
 .idea
 
+benchmark_test
+
 # Auto generate documentation
 docs/en/_build/
 docs/zh_cn/_build/

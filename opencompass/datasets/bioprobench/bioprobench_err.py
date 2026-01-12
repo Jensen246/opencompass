@@ -78,8 +78,14 @@ class BioProBenchERREvaluator(BaseEvaluator):
 		gts = []
 		failed = 0
 		total = len(references)
+		details = []  # RDAgent compatibility: store per-sample details
 
 		for i in range(min(len(predictions), len(references))):
+			sample_detail = {
+				'pred': None,
+				'gold': None,
+				'correct': False,
+			}
 			try:
 				p = predictions[i]
 				r = references[i]
@@ -96,8 +102,15 @@ class BioProBenchERREvaluator(BaseEvaluator):
 
 				preds.append(p)
 				gts.append(gt)
+
+				is_correct = (p == gt)
+				sample_detail['pred'] = p
+				sample_detail['gold'] = gt
+				sample_detail['correct'] = is_correct
+				details.append(sample_detail)
 			except Exception:
 				failed += 1
+				details.append(sample_detail)
 
 		# Classification metrics following Metrics/ERR.py semantics
 		if preds:
@@ -119,5 +132,6 @@ class BioProBenchERREvaluator(BaseEvaluator):
 			"f1": f1 * 100,
 			"failed": failed,
 			"total": total,
+			"details": details,  # RDAgent compatibility: per-sample details
 		}
 

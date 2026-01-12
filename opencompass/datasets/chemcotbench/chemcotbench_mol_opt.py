@@ -451,6 +451,9 @@ class ChemCoTBenchMolOptEvaluator(BaseEvaluator):
                     scaffold_hard_count += 1
                 scaffold_soft_sum += scaffold_sim
 
+            # RDAgent compatibility: correct = valid SMILES with positive improvement
+            is_correct = pred_valid and improvement is not None and improvement > 0
+
             details.append({
                 'pred_raw': pred_raw[:500] if pred_raw else '',
                 'pred_smiles': pred_smiles,
@@ -461,6 +464,7 @@ class ChemCoTBenchMolOptEvaluator(BaseEvaluator):
                 'improvement': improvement,
                 'scaffold_same': is_same_scaffold,
                 'scaffold_similarity': scaffold_sim,
+                'correct': is_correct,
             })
 
         # Calculate statistics

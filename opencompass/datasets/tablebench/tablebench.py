@@ -732,7 +732,7 @@ class TableBenchVisualizationEvaluator(BaseEvaluator):
         details = []
         
         for idx, (pred, ref, test_item) in enumerate(zip(predictions, ref_data, test_set if test_set else [{}]*total)):
-            detail = {'pred': pred[:100], 'answer': ref, 'parse_1': False, 'ecr_1': False, 'pass_1': False}
+            detail = {'pred': pred[:100], 'answer': ref, 'parse_1': False, 'ecr_1': False, 'pass_1': False, 'correct': False}
             
             # 添加调试信息
             print(f"\n=== Sample {idx} ===")
@@ -767,6 +767,7 @@ class TableBenchVisualizationEvaluator(BaseEvaluator):
                 # 修复：设置 pass_1 而不是 ecr_1
                 if exec_result['correct']:
                     detail['pass_1'] = True
+                    detail['correct'] = True  # RDAgent compatibility: alias for pass_1
                     pass_1_count += 1
                 
                 detail['execution_error'] = exec_result.get('error', None)

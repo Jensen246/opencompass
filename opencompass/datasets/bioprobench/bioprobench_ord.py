@@ -70,8 +70,15 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 		preds_steps = []
 		gts_steps = []
 		failed = 0
+		details = []  # RDAgent compatibility: store per-sample details
 
 		for i in range(min(len(predictions), len(references))):
+			sample_detail = {
+				'pred': None,
+				'gold': None,
+				'exact_match': False,
+				'correct': False,
+			}
 			try:
 				pred = predictions[i]
 				ref = references[i]
@@ -99,8 +106,16 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 				predicted = [wrong_steps[j] for j in pred]
 				preds_steps.append(predicted)
 				gts_steps.append(correct_steps)
+
+				is_exact = (predicted == correct_steps)
+				sample_detail['pred'] = pred
+				sample_detail['gold'] = list(range(len(correct_steps)))
+				sample_detail['exact_match'] = is_exact
+				sample_detail['correct'] = is_exact
+				details.append(sample_detail)
 			except Exception:
 				failed += 1
+				details.append(sample_detail)
 
 		def exact_match(gts, preds):
 			if not gts:
@@ -134,5 +149,6 @@ class BioProBenchORDEvaluator(BaseEvaluator):
 			"kendall_tau": tau,  # 相关系数，范围-1到1，不乘100
 			"failed": failed,
 			"total": total,
+			"details": details,  # RDAgent compatibility: per-sample details
 		}
 

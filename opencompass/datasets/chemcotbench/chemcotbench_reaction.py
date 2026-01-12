@@ -417,6 +417,7 @@ class ChemCoTBenchReactionEvaluator(BaseEvaluator):
                 'pred_extracted': pred,
                 'gold': ref,
                 'exact_match': is_exact,
+                'correct': is_exact,  # RDAgent compatibility: alias for exact_match
             })
 
         exact_rate = exact_matches / total * 100 if total > 0 else 0
@@ -500,6 +501,7 @@ class ChemCoTBenchReactionEvaluator(BaseEvaluator):
                 'gold_canonical': ref_canonical,
                 'pred_valid': pred_valid,
                 'exact_match': is_exact,
+                'correct': is_exact,  # RDAgent compatibility: alias for exact_match
                 'morgan_similarity': morgan_sim,
                 'maccs_similarity': maccs_sim,
                 'rdk_similarity': rdk_sim,

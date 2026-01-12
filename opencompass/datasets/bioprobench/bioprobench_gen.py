@@ -167,14 +167,25 @@ class BioProBenchGENEvaluator(BaseEvaluator):
         sr_list, rp_list = [], []
         failed = 0
         total = len(references)
+        details = []  # RDAgent compatibility: store per-sample details
 
         for i in range(min(len(predictions), len(references))):
             try:
                 gen = predictions[i]
                 ref = references[i]
 
+                # Initialize sample detail for RDAgent compatibility
+                ref_str = " ".join(ref) if isinstance(ref, list) else str(ref)
+                sample_detail = {
+                    'pred': str(gen)[:500] if gen else '',
+                    'answer': ref_str[:500],
+                    'correct': False,
+                    'rouge_l': None,
+                }
+
                 if gen is None:
                     failed += 1
+                    details.append(sample_detail)
                     continue
 
                 # If reference is a list of steps, compute step metrics
@@ -202,6 +213,10 @@ class BioProBenchGENEvaluator(BaseEvaluator):
                     rouge2_list.append(rouge2)
                 if rougeL is not None:
                     rougel_list.append(rougeL)
+                    sample_detail['rouge_l'] = rougeL
+                    # RDAgent compatibility: correct if ROUGE-L >= 0.5
+                    if rougeL >= 0.5:
+                        sample_detail['correct'] = True
 
                 kw_p, kw_r, kw_f1 = self._compute_keyword_overlap(ref_text, gen_text)
                 if kw_p is not None:
@@ -210,8 +225,11 @@ class BioProBenchGENEvaluator(BaseEvaluator):
                     kw_recall_list.append(kw_r)
                 if kw_f1 is not None:
                     kw_f1_list.append(kw_f1)
+
+                details.append(sample_detail)
             except Exception:
                 failed += 1
+                details.append({'pred': '', 'answer': '', 'correct': False, 'rouge_l': None})
 
         result = {
             "BLEU": float(np.mean(bleu_list)) * 100 if bleu_list else None,
@@ -226,6 +244,7 @@ class BioProBenchGENEvaluator(BaseEvaluator):
             "Redundancy_Penalty": float(np.mean(rp_list)) * 100 if rp_list else None,
             "Failed": failed,
             "Total": total,
+            "details": details,  # RDAgent compatibility: per-sample details
         }
 
         return result

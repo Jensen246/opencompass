@@ -83,8 +83,14 @@ class BioProBenchPQAEvaluator(BaseEvaluator):
         accs = []
         cfds = []
         failed = 0
+        details = []  # RDAgent compatibility: store per-sample details
 
         for i in range(min(len(predictions), len(references))):
+            sample_detail = {
+                'answer': None,
+                'confidence': None,
+                'correct': False,
+            }
             try:
                 pred = predictions[i]
                 ref = references[i]
@@ -112,10 +118,17 @@ class BioProBenchPQAEvaluator(BaseEvaluator):
                 if confidence < 0 or confidence > 100:
                     raise ValueError("Confidence out of range")
 
-                accs.append(1 if answer == ref else 0)
+                is_correct = (answer == ref)
+                accs.append(1 if is_correct else 0)
                 cfds.append(confidence)
+
+                sample_detail['answer'] = answer
+                sample_detail['confidence'] = confidence
+                sample_detail['correct'] = is_correct
+                details.append(sample_detail)
             except Exception:
                 failed += 1
+                details.append(sample_detail)
 
         accuracy = (sum(accs) / len(accs)) if accs else 0.0
         brier = float(brier_score_loss(accs, np.array(cfds) / 100)) if accs else None
@@ -125,6 +138,7 @@ class BioProBenchPQAEvaluator(BaseEvaluator):
             "brier_score": brier,  # 均方误差，范围0-1，越低越好，不乘100
             "failed": failed,
             "total": total,
+            "details": details,  # RDAgent compatibility: per-sample details
         }
 
         
