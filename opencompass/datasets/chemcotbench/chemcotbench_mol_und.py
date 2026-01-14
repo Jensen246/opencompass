@@ -245,7 +245,7 @@ class ChemCoTBenchMolUndEvaluator(BaseEvaluator):
                     similarity = _calculate_tanimoto_similarity(pred_extracted, ref)
                     similarity_sum += similarity
             
-            return {'tanimoto': similarity_sum / total if total > 0 else 0}
+            return {'tanimoto_similarity_larger_means_better': similarity_sum / total if total > 0 else 0}
         
         # Default: exact match accuracy
         correct = 0
