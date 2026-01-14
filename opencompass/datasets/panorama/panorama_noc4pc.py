@@ -271,6 +271,7 @@ class NOC4PCDataset(BaseDataset):
              prompt_mode: str = 'zero-shot',
              max_input_len: Optional[int] = None,
              tokenizer_path: Optional[str] = None,
+             seed: int = 42,
              **kwargs) -> Dataset:
         """Load and preprocess the NOC4PC dataset.
 
@@ -328,6 +329,7 @@ class NOC4PCDataset(BaseDataset):
             print(f'[NOC4PC] Filtered {filtered_count} samples exceeding '
                   f'{max_input_len} tokens. Remaining: {len(processed_ds)}/{original_size}')
 
+        processed_ds = processed_ds.shuffle(seed=seed)
         return processed_ds
 
 

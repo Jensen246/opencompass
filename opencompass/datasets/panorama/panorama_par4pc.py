@@ -252,6 +252,7 @@ class PAR4PCDataset(BaseDataset):
              prompt_mode: str = 'zero-shot',
              max_input_len: Optional[int] = None,
              tokenizer_path: Optional[str] = None,
+             seed: int = 42,
              **kwargs) -> Dataset:
         """Load and preprocess the PAR4PC dataset.
 
@@ -262,6 +263,7 @@ class PAR4PCDataset(BaseDataset):
                 will be filtered out. If None, no filtering is applied.
             tokenizer_path: Path to tokenizer for length calculation.
                 Required if max_input_len is specified.
+            seed: Random seed for shuffle (default: 42).
 
         Returns:
             Dataset with columns: prompt, gold_answers, silver_answers,
@@ -309,6 +311,7 @@ class PAR4PCDataset(BaseDataset):
             print(f'[PAR4PC] Filtered {filtered_count} samples exceeding '
                   f'{max_input_len} tokens. Remaining: {len(processed_ds)}/{original_size}')
 
+        processed_ds = processed_ds.shuffle(seed=seed)
         return processed_ds
 
 

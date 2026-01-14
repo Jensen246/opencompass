@@ -14,14 +14,16 @@ from opencompass.openicl.icl_evaluator import BaseEvaluator
 class BioProBenchORDDataset(BaseDataset):
 
 	@staticmethod
-	def load(path="bowenxian/BioProBench", **kwargs):
+	def load(path="bowenxian/BioProBench", seed: int = 42, **kwargs):
 		ds = load_dataset(path, name="ORD", split="test", **kwargs)
 
 		def _compute(row):
 			idx = {s: i for i, s in enumerate(row["wrong_steps"])}
 			return {"correct_ids": [idx.get(s) for s in row["correct_steps"]]}
 
-		return ds.map(_compute)
+		ds = ds.map(_compute)
+		ds = ds.shuffle(seed=seed)
+		return ds
 
 
 def bioprobench_ord_postprocess(text: str):

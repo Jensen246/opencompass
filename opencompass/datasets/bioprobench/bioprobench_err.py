@@ -11,7 +11,7 @@ from opencompass.openicl.icl_evaluator import BaseEvaluator
 @LOAD_DATASET.register_module()
 class BioProBenchERRDataset(BaseDataset):
     @staticmethod
-    def load(path="bowenxian/BioProBench", **kwargs):
+    def load(path="bowenxian/BioProBench", seed: int = 42, **kwargs):
         """Load the BioProBench ERR split via HuggingFace datasets.
 
         Mirrors the PQA/ORD loader style and limits to a small subset
@@ -28,6 +28,7 @@ class BioProBenchERRDataset(BaseDataset):
                 example["step"] = None
             return example
         ds = ds.map(_add_step)
+        ds = ds.shuffle(seed=seed)
         return ds
 
 

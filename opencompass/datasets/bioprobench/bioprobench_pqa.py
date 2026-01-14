@@ -14,8 +14,9 @@ from opencompass.openicl.icl_evaluator import BaseEvaluator
 class BioProBenchPQADataset(BaseDataset):
 
     @staticmethod
-    def load(path="bowenxian/BioProBench", **kwargs):
+    def load(path="bowenxian/BioProBench", seed: int = 42, **kwargs):
         ds = load_dataset(path, name="PQA", split="test")
+        ds = ds.shuffle(seed=seed)
         return ds
 
 def bioprobench_pqa_postprocess(text: str) -> str:

@@ -246,6 +246,7 @@ class ChemCoTBenchMolEditDataset(BaseDataset):
     @staticmethod
     def load(path: str = 'OpenMol/ChemCoTBench',
              subtask: str = 'add',
+             seed: int = 42,
              **kwargs) -> Dataset:
         """Load and preprocess the mol_edit dataset from HuggingFace."""
         ds = load_dataset(path, split='train', trust_remote_code=True)
@@ -287,6 +288,7 @@ class ChemCoTBenchMolEditDataset(BaseDataset):
             }
 
         processed_ds = ds.map(process_item, remove_columns=ds.column_names)
+        processed_ds = processed_ds.shuffle(seed=seed)
         return processed_ds
 
 

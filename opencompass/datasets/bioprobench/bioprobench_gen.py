@@ -20,8 +20,9 @@ from nltk.translate.meteor_score import meteor_score
 @LOAD_DATASET.register_module()
 class BioProBenchGENDataset(BaseDataset):
     @staticmethod
-    def load(path="bowenxian/BioProBench", **kwargs):
+    def load(path="bowenxian/BioProBench", seed: int = 42, **kwargs):
         ds = load_dataset(path, name="GEN", split="test")
+        ds = ds.shuffle(seed=seed)
         return ds
 
 

@@ -104,6 +104,7 @@ class TableBenchDataset(BaseDataset):
              qtype: Optional[str] = None,
              qsubtype: Optional[str] = None,
              instruction_type: str = 'TCoT',
+             seed: int = 42,
              **kwargs) -> Dataset:
         """
         Load TableBench dataset from HuggingFace.
@@ -190,6 +191,7 @@ class TableBenchDataset(BaseDataset):
             }
         
         processed_ds = ds.map(process_item)
+        processed_ds = processed_ds.shuffle(seed=seed)
         return processed_ds
 
 
