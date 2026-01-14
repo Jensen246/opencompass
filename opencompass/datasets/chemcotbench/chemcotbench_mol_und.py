@@ -56,7 +56,9 @@ def _extract_answer_from_response(response: str, subtask: str) -> Optional[str]:
                 answer = data.get('count', data.get('answer'))
             elif subtask == 'equivalence':
                 answer = data.get('output', data.get('answer'))
-            elif subtask in ['Murcko_scaffold', 'ring_system_scaffold']:
+            elif subtask == 'Murcko_scaffold':
+                answer = data.get('Output Scaffold', data.get('output', data.get('answer')))
+            elif subtask == 'ring_system_scaffold':
                 answer = data.get('output', data.get('answer'))
             else:
                 answer = data.get('answer', data.get('output', data.get('count')))
@@ -101,65 +103,48 @@ def _extract_answer_from_response(response: str, subtask: str) -> Optional[str]:
     elif subtask == 'Murcko_scaffold':
         # For Murcko scaffold tasks, extract SMILES
         patterns = [
+            r'"Output Scaffold"\s*:\s*"([^"]*)"',
             r'"output"\s*:\s*"([^"]*)"',
             r'"answer"\s*:\s*"([^"]*)"',
         ]
         for pattern in patterns:
-            match = re.search(pattern, response)
+            match = re.search(pattern, response, re.IGNORECASE)
             if match:
                 return match.group(1).strip()
 
     return response.strip()
 
 
-def _calculate_scaffold_similarity(smiles1: str, smiles2: str) -> tuple:
-    """Calculate scaffold consistency (hard and soft).
+def _calculate_tanimoto_similarity(smiles1: str, smiles2: str) -> float:
+    """Calculate Tanimoto similarity between two SMILES using Morgan fingerprints.
     
-    Based on official evaluation using rdFMCS.FindMCS:
-    https://github.com/IDEA-XL/ChemCoTBench/blob/main/baseline_and_eval/eval/eval_metric.py
+    Args:
+        smiles1: First SMILES string (e.g., predicted scaffold)
+        smiles2: Second SMILES string (e.g., ground truth scaffold)
     
-    Returns (is_same_scaffold, similarity_score)
+    Returns:
+        Tanimoto similarity score (0.0 to 1.0)
     """
     try:
         from rdkit import Chem, DataStructs
-        from rdkit.Chem import AllChem, rdFMCS
-        from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
+        from rdkit.Chem import AllChem
         
-        # Get Murcko scaffolds
-        try:
-            scaffold1 = MurckoScaffoldSmiles(smiles1)
-            scaffold2 = MurckoScaffoldSmiles(smiles2)
-        except Exception:
-            return False, 0.0
-        
-        # Exact match (hard)
-        if scaffold1 == scaffold2:
-            return True, 1.0
-        
-        # Soft: use MCS + fingerprint similarity (official implementation)
-        mol1 = Chem.MolFromSmiles(scaffold1)
-        mol2 = Chem.MolFromSmiles(scaffold2)
+        mol1 = Chem.MolFromSmiles(smiles1)
+        mol2 = Chem.MolFromSmiles(smiles2)
         
         if mol1 is None or mol2 is None:
-            return False, 0.0
+            return 0.0
         
-        # Find MCS first (as in official implementation)
-        mcs = rdFMCS.FindMCS([mol1, mol2])
-        mcs_mol = Chem.MolFromSmarts(mcs.smartsString) if mcs.numAtoms > 0 else None
+        # Calculate Morgan fingerprint (radius=2, 1024 bits)
+        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=1024)
+        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=1024)
         
-        if mcs_mol:
-            # Calculate Morgan fingerprint similarity
-            fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=1024)
-            fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=1024)
-            similarity = DataStructs.TanimotoSimilarity(fp1, fp2)
-        else:
-            similarity = 0.0
-        
-        return False, similarity
+        return DataStructs.TanimotoSimilarity(fp1, fp2)
     except ImportError:
-        return smiles1 == smiles2, 1.0 if smiles1 == smiles2 else 0.0
+        # Fallback: exact string match
+        return 1.0 if smiles1 == smiles2 else 0.0
     except Exception:
-        return False, 0.0
+        return 0.0
 
 
 @LOAD_DATASET.register_module()
@@ -207,13 +192,10 @@ class ChemCoTBenchMolUndDataset(BaseDataset):
 class ChemCoTBenchMolUndEvaluator(BaseEvaluator):
     """Evaluator for ChemCoTBench mol_und task.
 
-    Evaluation metrics based on official implementation:
-    https://github.com/IDEA-XL/ChemCoTBench/blob/main/baseline_and_eval/eval/eval_molund.py
-    
-    - fg_count, ring_count: Mean Absolute Error (MAE) - score = sum(|pred-gt|) / len
-    - equivalence: Accuracy (Yes/No match with gt)
-    - ring_system_scaffold: Rate of "Yes" predictions
-    - Murcko_scaffold: Scaffold consistency (soft score using MCS + Morgan fingerprint)
+    Evaluation metrics based on official paper:
+    - fg_count, ring_count: Mean Absolute Error (MAE)
+    - equivalence, ring_system_scaffold: Accuracy (Yes/No match with gt)
+    - Murcko_scaffold: Tanimoto similarity (Morgan fingerprint)
     """
 
     def __init__(self, subtask: str = 'fg_count') -> None:
@@ -227,194 +209,49 @@ class ChemCoTBenchMolUndEvaluator(BaseEvaluator):
             return {'error': 'predictions and references have different length'}
 
         total = len(predictions)
-        details = []
         
         if self.subtask in ['fg_count', 'ring_count']:
-            # MAE evaluation: score = sum(|pred-gt|) / len (lower is better)
-            # Based on official: score = sum([abs(int(pred_list[i])-int(gt_list[i])) for i in range(len(pred_list))]) / len(gt_list)
+            # MAE evaluation (lower is better)
             mae_sum = 0
-            valid_count = 0
-            
             for pred_raw, ref in zip(predictions, references):
                 pred_extracted = _extract_answer_from_response(pred_raw, self.subtask)
-                
                 try:
-                    pred_val = int(pred_extracted) if pred_extracted else None
+                    pred_val = int(pred_extracted) if pred_extracted else 0
                     ref_val = int(ref)
-                    
-                    if pred_val is not None:
-                        error = abs(pred_val - ref_val)
-                        mae_sum += error
-                        valid_count += 1
-                        is_correct = (error == 0)
-                    else:
-                        error = None
-                        is_correct = False
+                    mae_sum += abs(pred_val - ref_val)
                 except (ValueError, TypeError):
-                    error = None
-                    is_correct = False
-                    pred_val = None
-                    ref_val = ref
-                
-                details.append({
-                    'pred_raw': pred_raw[:500] if pred_raw else '',
-                    'pred_extracted': pred_extracted,
-                    'pred_value': pred_val,
-                    'gold': ref,
-                    'error': error,
-                    'correct': is_correct,
-                })
+                    mae_sum += abs(int(ref))  # Treat invalid prediction as 0
             
-            # Official: score = sum(abs) / len (using total, not valid_count)
-            mae = mae_sum / total if total > 0 else 0
-            accuracy = sum(1 for d in details if d['correct']) / total * 100 if total > 0 else 0
-            valid_rate = valid_count / total * 100 if total > 0 else 0
+            return {'mae': mae_sum / total if total > 0 else 0}
             
-            return {
-                'mae': mae,
-                'accuracy': accuracy,
-                'valid_rate': valid_rate,
-                'total_count': total,
-                'details': details,
-            }
-            
-        elif self.subtask == 'equivalence':
-            # Yes/No accuracy: compare pred.lower() == gt.lower()
-            # Based on official: count = sum(1 for i if str(pred_list[i]).lower() == str(gt_list[i]).lower())
+        elif self.subtask in ['equivalence', 'ring_system_scaffold']:
+            # Yes/No accuracy
             correct = 0
-            
             for pred_raw, ref in zip(predictions, references):
                 pred_extracted = _extract_answer_from_response(pred_raw, self.subtask)
-                
-                pred_norm = str(pred_extracted).lower() if pred_extracted else ''
-                ref_norm = str(ref).lower()
-                
-                is_correct = pred_norm == ref_norm
-                if is_correct:
+                if str(pred_extracted).lower() == str(ref).lower():
                     correct += 1
-                
-                details.append({
-                    'pred_raw': pred_raw[:500] if pred_raw else '',
-                    'pred_extracted': pred_extracted,
-                    'pred_normalized': pred_norm,
-                    'gold': ref,
-                    'gold_normalized': ref_norm,
-                    'correct': is_correct,
-                })
             
-            accuracy = correct / total * 100 if total > 0 else 0
-            
-            return {
-                'accuracy': accuracy,
-                'correct_count': correct,
-                'total_count': total,
-                'details': details,
-            }
-        
-        elif self.subtask == 'ring_system_scaffold':
-            # Based on official: count = sum(1 for item in pred_list if str(item).lower() == "yes")
-            # score = count / len(pred_list)
-            yes_count = 0
-            valid_count = 0
-            
-            for pred_raw, ref in zip(predictions, references):
-                pred_extracted = _extract_answer_from_response(pred_raw, self.subtask)
-                
-                if pred_extracted:
-                    valid_count += 1
-                    is_yes = str(pred_extracted).lower() == 'yes'
-                    if is_yes:
-                        yes_count += 1
-                else:
-                    is_yes = False
-                
-                details.append({
-                    'pred_raw': pred_raw[:500] if pred_raw else '',
-                    'pred_extracted': pred_extracted,
-                    'gold': ref,
-                    'is_yes': is_yes,
-                })
-            
-            # Score is the rate of "Yes" predictions
-            score = yes_count / valid_count * 100 if valid_count > 0 else 0
-            valid_rate = valid_count / total * 100 if total > 0 else 0
-            
-            return {
-                'score': score,
-                'yes_count': yes_count,
-                'valid_rate': valid_rate,
-                'total_count': total,
-                'details': details,
-            }
+            return {'accuracy': correct / total * 100 if total > 0 else 0}
             
         elif self.subtask == 'Murcko_scaffold':
-            # Scaffold consistency (soft score)
-            # Based on official: scaffold_hard, scaffold_soft = prop_evaluater.scaffold_consistency(...)
-            # score = scaffold_soft / len(pred_list)
-            scaffold_hard_count = 0
-            scaffold_soft_sum = 0.0
-            valid_count = 0
+            # Tanimoto similarity between predicted scaffold and ground truth scaffold
+            similarity_sum = 0.0
             
-            # Get source SMILES from test_set if available
-            source_list = []
-            if test_set is not None:
-                for item in test_set:
-                    source_list.append(item.get('source_smiles', ''))
-            else:
-                source_list = references  # Fall back to using references as gt molecules
-            
-            for i, (pred_raw, ref) in enumerate(zip(predictions, references)):
+            for pred_raw, ref in zip(predictions, references):
                 pred_extracted = _extract_answer_from_response(pred_raw, self.subtask)
-                source = source_list[i] if i < len(source_list) else ref
                 
-                if pred_extracted and source:
-                    is_same, similarity = _calculate_scaffold_similarity(source, pred_extracted)
-                    scaffold_soft_sum += similarity
-                    if is_same:
-                        scaffold_hard_count += 1
-                    valid_count += 1
-                else:
-                    is_same = False
-                    similarity = 0.0
-                
-                details.append({
-                    'pred_raw': pred_raw[:500] if pred_raw else '',
-                    'pred_extracted': pred_extracted,
-                    'source': source,
-                    'gold': ref,
-                    'scaffold_same': is_same,
-                    'scaffold_similarity': similarity,
-                })
+                if pred_extracted and ref:
+                    similarity = _calculate_tanimoto_similarity(pred_extracted, ref)
+                    similarity_sum += similarity
             
-            # Official: score = scaffold_soft / len(pred_list)
-            avg_score = scaffold_soft_sum / total * 100 if total > 0 else 0
-            scaffold_hard_rate = scaffold_hard_count / total * 100 if total > 0 else 0
-            valid_rate = valid_count / total * 100 if total > 0 else 0
-            
-            return {
-                'scaffold_score': avg_score,
-                'scaffold_hard': scaffold_hard_rate,
-                'valid_rate': valid_rate,
-                'total_count': total,
-                'details': details,
-            }
+            return {'tanimoto': similarity_sum / total if total > 0 else 0}
         
-        # Default: exact match
+        # Default: exact match accuracy
         correct = 0
         for pred_raw, ref in zip(predictions, references):
             pred_extracted = _extract_answer_from_response(pred_raw, self.subtask)
             if str(pred_extracted).lower() == str(ref).lower():
                 correct += 1
-            details.append({
-                'pred_raw': pred_raw[:500] if pred_raw else '',
-                'pred_extracted': pred_extracted,
-                'gold': ref,
-                'correct': str(pred_extracted).lower() == str(ref).lower(),
-            })
         
-        return {
-            'accuracy': correct / total * 100 if total > 0 else 0,
-            'correct_count': correct,
-            'total_count': total,
-            'details': details,
-        }
+        return {'accuracy': correct / total * 100 if total > 0 else 0}
