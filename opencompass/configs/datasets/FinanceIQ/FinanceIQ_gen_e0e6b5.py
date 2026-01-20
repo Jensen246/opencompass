@@ -3,7 +3,7 @@ from opencompass.openicl.icl_retriever import FixKRetriever
 from opencompass.openicl.icl_inferencer import GenInferencer
 from opencompass.openicl.icl_evaluator import AccEvaluator
 from opencompass.datasets import FinanceIQDataset
-from opencompass.utils.text_postprocessors import first_capital_postprocess
+from opencompass.utils.text_postprocessors import last_capital_postprocess
 
 financeIQ_subject_mapping_en = {
     'certified_public_accountant': '注册会计师（CPA）',
@@ -57,7 +57,7 @@ for _name in financeIQ_all_sets:
 
     financeIQ_eval_cfg = dict(
         evaluator=dict(type=AccEvaluator),
-        pred_postprocessor=dict(type=first_capital_postprocess))
+        pred_postprocessor=dict(type=last_capital_postprocess))
 
     financeIQ_datasets.append(
         dict(
